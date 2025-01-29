@@ -62,7 +62,9 @@ class BlynkReader:
         logger.info("BlynkReader detenido")
 
 # Configuraciones globales
-token = os.environ.get('BLYNK_TOKEN')
+# Configuraciones globales
+token = os.environ.get('BLYNK_TOKEN', "Bv4yA2yVVgURhhHGRg5WqCo4OSiE2FlD")
+logger.info(f"Token utilizado: {token[:5]}...")  # Solo mostramos los primeros 5 caracteres por seguridad
 pin_virtual = "V5"
 blynk_reader = BlynkReader(token, pin_virtual)
 blynk_reader.start()
