@@ -1,0 +1,17 @@
+# Ambiente virtual
+venv/
+RaVenv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# IDEs
+.vscode/
+.idea/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
