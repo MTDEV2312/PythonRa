@@ -1,46 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <title>AR Scanner</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            text-align: center;
-        }
-        #video {
-            display: none;
-        }
-        #canvas {
-            width: 100%;
-            max-width: 640px;
-            margin: 20px auto;
-            border: 1px solid #ccc;
-        }
-        .camera-select {
-            margin: 20px 0;
-        }
-        .error-message {
-            background-color: #ffebee;
-            color: #c62828;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-            text-align: left;
-        }
-        .error-message h3 {
-            margin-top: 0;
-        }
-        .error-message ul {
-            margin-bottom: 0;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div class="container">
@@ -50,179 +14,25 @@
             <label for="cameraSelect">Seleccionar cámara:</label>
             <select id="cameraSelect"></select>
         </div>
+        <div class="controls">
+            <button id="startButton">Iniciar Cámara</button>
+            <button id="stopButton" disabled>Detener Cámara</button>
+        </div>
         <video id="video" autoplay playsinline></video>
-        <canvas id="canvas"></canvas>
+        <div class="canvas-container">
+            <canvas id="canvas"></canvas>
+            <div id="fpsCounter" class="fps-display">FPS: 0</div>
+            <div id="loadingIndicator" class="loading-indicator">Procesando...</div>
+        </div>
         <div id="status"></div>
     </div>
 
-    <script>
-        let video = document.getElementById('video');
-        let canvas = document.getElementById('canvas');
-        let cameraSelect = document.getElementById('cameraSelect');
-        let statusDiv = document.getElementById('status');
-        let errorContainer = document.getElementById('errorContainer');
-        let stream = null;
-        let isProcessing = false;
-        let processingTimer = null;
-        
-        // Función para mostrar errores
-        function showError(title, messages) {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            
-            let html = `<h3>${title}</h3>`;
-            if (Array.isArray(messages)) {
-                html += '<ul>';
-                messages.forEach(msg => {
-                    html += `<li>${msg}</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += `<p>${messages}</p>`;
-            }
-            
-            errorDiv.innerHTML = html;
-            errorContainer.innerHTML = '';
-            errorContainer.appendChild(errorDiv);
-        }
+    <button id="debugToggle" class="debug-toggle">Mostrar Debug</button>
+    <div id="debugPanel" class="debug-panel hidden">
+        <h4>Información de Debug</h4>
+        <pre id="debugInfo"></pre>
+    </div>
 
-        // Verificar si el navegador soporta mediaDevices
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            showError('Error de Acceso a la Cámara', [
-                'Tu navegador no puede acceder a la cámara por una de estas razones:',
-                'No estás usando HTTPS (requerido para acceder a la cámara)',
-                'El navegador no soporta acceso a la cámara',
-                'Prueba accediendo desde localhost o usando HTTPS'
-            ]);
-        } else {
-            // Resto del código existente
-            let backCanvas = document.createElement('canvas');
-            let backContext = backCanvas.getContext('2d');
-
-            async function listCameras() {
-                try {
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                    
-                    cameraSelect.innerHTML = '';
-                    videoDevices.forEach(device => {
-                        const option = document.createElement('option');
-                        option.value = device.deviceId;
-                        option.text = device.label || `Cámara ${cameraSelect.length + 1}`;
-                        cameraSelect.appendChild(option);
-                    });
-                } catch (error) {
-                    console.error('Error listing cameras:', error);
-                    showError('Error', 'No se pudieron listar las cámaras disponibles');
-                }
-            }
-
-            async function startCamera(deviceId = null) {
-                try {
-                    if (stream) {
-                        stream.getTracks().forEach(track => track.stop());
-                    }
-
-                    const constraints = {
-                        video: {
-                            deviceId: deviceId ? { exact: deviceId } : undefined,
-                            width: { ideal: 640 },
-                            height: { ideal: 480 },
-                            facingMode: 'environment'
-                        }
-                    };
-
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    video.srcObject = stream;
-                    
-                    video.onloadedmetadata = () => {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        backCanvas.width = video.videoWidth;
-                        backCanvas.height = video.videoHeight;
-                        processVideo();
-                        statusDiv.textContent = 'Cámara iniciada, buscando marcadores...';
-                    };
-                } catch (error) {
-                    console.error('Error accessing camera:', error);
-                    showError('Error de Cámara', 'No se pudo acceder a la cámara. Asegúrate de dar permisos de acceso.');
-                }
-            }
-
-            async function processVideo() {
-                if (!stream || isProcessing) return;
-
-                isProcessing = true;
-                
-                try {
-                    backContext.drawImage(video, 0, 0);
-                    
-                    const blob = await new Promise(resolve => {
-                        backCanvas.toBlob(resolve, 'image/jpeg', 0.7);
-                    });
-
-                    const formData = new FormData();
-                    formData.append('frame', blob);
-
-                    const response = await fetch('/process_frame', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (response.ok) {
-                        const processedImageBlob = await response.blob();
-                        const imageUrl = URL.createObjectURL(processedImageBlob);
-                        const img = new Image();
-                        
-                        img.onload = () => {
-                            const ctx = canvas.getContext('2d');
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            URL.revokeObjectURL(imageUrl);
-                            isProcessing = false;
-                            processingTimer = setTimeout(() => {
-                                requestAnimationFrame(processVideo);
-                            }, 50);
-                        };
-                        img.src = imageUrl;
-                    }
-                } catch (error) {
-                    console.error('Error processing frame:', error);
-                    isProcessing = false;
-                    processingTimer = setTimeout(() => {
-                        requestAnimationFrame(processVideo);
-                    }, 50);
-                }
-            }
-            
-            cameraSelect.addEventListener('change', (event) => {
-                if (processingTimer) {
-                    clearTimeout(processingTimer);
-                }
-                startCamera(event.target.value);
-            });
-
-            // Inicializar
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(() => {
-                    listCameras();
-                    startCamera();
-                })
-                .catch(error => {
-                    console.error('Error accessing camera:', error);
-                    showError('Error', 'No se pudo acceder a la cámara. Verifica los permisos y la conexión HTTPS.');
-                });
-
-            // Limpieza al cerrar
-            window.addEventListener('beforeunload', () => {
-                if (processingTimer) {
-                    clearTimeout(processingTimer);
-                }
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-            });
-        }
-    </script>
+    <script src="/static/js/arscanner.js"></script>
 </body>
 </html>
