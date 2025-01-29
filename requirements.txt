@@ -17,6 +17,7 @@ numpy==2.2.2
 opencv-python-headless==4.11.0.86
 packaging==24.2
 pycparser==2.22
+python-dotenv==1.0.1
 requests==2.32.3
 setuptools==75.8.0
 urllib3==2.3.0

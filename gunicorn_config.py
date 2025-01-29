@@ -1,20 +1,20 @@
-# Gunicorn configuration file
+import os
 
 # Servidor y Workers
-worker_class = 'gevent'  # Usar gevent para manejo asíncrono
-workers = 2              # Número de workers (procesos)
-threads = 4             # Número de threads por worker
-worker_connections = 1000  # Máximo número de conexiones simultáneas por worker
+worker_class = 'gevent'
+workers = 2
+threads = 4
+worker_connections = 1000
 
 # Timeouts
-timeout = 120           # Timeout en segundos para workers
-keepalive = 5          # Tiempo en segundos para mantener conexiones abiertas
-graceful_timeout = 30   # Tiempo para terminar workers gracefully
+timeout = 120
+keepalive = 5
+graceful_timeout = 30
 
 # Logging
 loglevel = 'info'
-accesslog = '-'         # '-' significa stdout
-errorlog = '-'         # '-' significa stderr
+accesslog = '-'
+errorlog = '-'
 access_log_format = '%({x-real-ip}i)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
 # Buffer
@@ -31,8 +31,9 @@ group = None
 tmp_upload_dir = None
 
 # Server Socket
-bind = '0.0.0.0:5000'  # Puerto en el que escuchará gunicorn
-backlog = 2048         # Número máximo de conexiones pendientes
+port = int(os.environ.get('PORT', 5000))
+bind = f'0.0.0.0:{port}'
+backlog = 2048
 
 # SSL
 keyfile = None
